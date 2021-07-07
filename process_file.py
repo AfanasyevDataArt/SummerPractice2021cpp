@@ -2,7 +2,7 @@
 import time
 from threading import Thread
 
-NUMBER_OF_THREADS = 1
+NUMBER_OF_THREADS = 4
 
 def process_line(in_line):
     #swapcase
@@ -50,6 +50,8 @@ if __name__ == '__main__':
         #wiat for finish
         for t in threads_pool:
             t.join()
+        
+        data_process = time.time()
 
         print("Save output data")
         out_file = open("output_py.data", "w")
@@ -58,10 +60,13 @@ if __name__ == '__main__':
 
         print("Done.")
     except Exception as e:
+        data_process = time.time()
         print(e)
 
     end = time.time()
     print("Data load time: {}".format(data_load - start))
+    print("Data process time: {}".format(data_process - data_load))
+    print("Data save time: {}".format(end - data_process))
     print("Total Execution time: {}".format(end - start))
 
 

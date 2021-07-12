@@ -14,6 +14,23 @@ string process_line(string in_line){
     string out_line=in_line;
 
     for(size_t i=0; i<out_line.size(); i++){
+        //if-else конструкции трудней оптимизируются процессором.
+        //Быстрей всего будет работать таблица преобразование как тут, https://github.com/slavavrn/SummerPractice2021cpp/blob/main/main.cpp#L13
+        // но лучше было использовать память на стеке. string выделяет память в куче
+        /*
+        string repl = "                                                1234567890:;<=>?@abcdefghijklmnopqrstuvwxyz[\\]^_`ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+        void process_line(string &out_line){
+
+            for(size_t i=0; i<out_line.size(); i++){
+                out_line[i] = repl[(int)(out_line[i])];
+            }
+
+        }
+*/
+        //Тернарный оператор (a>b?1:0) не даст вам прироста производительности перед if-else
+        //Они компелируются в один и тотже ассемблеровский код -> https://godbolt.org/z/EEW3r4TGP
+
         if (isdigit(out_line[i])){
             int d = out_line[i] -'0';
             if(d < 9){
@@ -32,8 +49,11 @@ string process_line(string in_line){
 }
 
 void process_thread(vector<string>& lines, size_t offset, size_t number_of_threads){
+    //Каждый поток читат строки перепрыгивая через 3. Это не cache-friendly
+    //Лучше когда каждый поток работает с непрерывным массмивом памяти.
+    //Это позволяет процессору заранее подтягивать данные из ОЗУ в кэш память
     for(size_t i=offset; i<lines.size(); i+=number_of_threads){
-        lines[i] = process_line(lines[i]);
+        lines[i] = process_line(lines[i]); //при вызове process_line происходит копирование строки
     }
 }
 
@@ -49,9 +69,21 @@ int main() {
             return 0;
         }
 
+        //mmap() позволяет работать с файлом как с буфером в памяти. Это намного быстрее простых read потому что
+        //не далает системых вызовов и не копирует данные.
+
+        //Объект string предславляет собой служебные данные и указатель на бухер с полезными данными.
+        // То есть каждая строчка лежит в памяти отдельно, что тоже не cache-friendly
+        // Лучше было бы использовать std::array<char, LINE_LENGTH> или просто char[LINE_LENGTH] вместо string
         vector<string> lines;
+
         string buffer;
         while(in_file >> buffer){
+            //Тут происходит копирования строчки.
+            //У vector  есть внутренне хранилище. Когда мы делаем push_back() и хранилище заканчивается,
+            // Выделяется память в 2 раза больше и  все данные туда перекопируются. Если у нас в векторе лежит 256МБ и
+            // мы хотим туда что-то положить переде этим вызовется выделение 512МБ и копирование 256МБ, что может занят время.
+            // Можно выделить сразу место для всего файла через .resize()
             lines.push_back(buffer+"\n");
         }
         in_file.close();
@@ -61,8 +93,6 @@ int main() {
         cout << "Start " << NUMBER_OF_THREADS << " threads" << endl;
         vector<thread> thread_pool;
         for(size_t i=0; i<NUMBER_OF_THREADS; i++){
-         //   thread *th = new thread(process_thread, i);
-          //  thread_pool.push_back(th);
             thread_pool.emplace_back(process_thread, ref(lines), i ,NUMBER_OF_THREADS);
         }
 
@@ -71,6 +101,7 @@ int main() {
             th.join();
         }
 
+        //Сохранять файл  можно тоже без mmap
         cout<<"Save output data"<<endl;
         ofstream out_file("../output_cpp.data");
         for(auto &line : lines){

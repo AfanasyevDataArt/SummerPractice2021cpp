@@ -5,6 +5,6 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_executable(case_switcher main.cpp)
 
-#target_link_libraries(case_switcher pthread)
+target_link_libraries(case_switcher pthread)
 #add_compile_options(-O3)
 
